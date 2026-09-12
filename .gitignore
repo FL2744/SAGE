@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.egg-info/
+projects/
+build/
+dist/
+
+.DS_Store
+.env.*
+Arab World/

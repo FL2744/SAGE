@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sage-encyclopedia"
+version = "0.1.0"
+description = "Synthetic Automated Generator of Encyclopedias"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+sage = "sage.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sage*"]
