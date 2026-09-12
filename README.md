@@ -1,3 +1,5 @@
+![sage logo](sage-logo.png)
+
 # SAGE
 **Synthetic Automated Generator of Encyclopedias**
 
