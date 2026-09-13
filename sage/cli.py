@@ -39,8 +39,15 @@ def parser():
             cmd.add_argument("--entry", help="Generate one entry ID from the list")
         if name in ("export", "build"):
             cmd.add_argument("--output", type=Path)
+            cmd.add_argument("--citation-limit", type=positive, help="Maximum new API reference lookups")
+            cmd.add_argument("--offline-citations", action="store_true", help="Use saved references without API lookups")
+            cmd.add_argument("--edition", choices=("web", "kindle", "no-references", "chicago"))
+            cmd.add_argument("--citations", choices=("links", "chicago", "none"), default="links")
         if name == "export":
-            cmd.add_argument("--partial", action="store_true", help="Export accepted entries as a labeled partial draft")
+            completeness = cmd.add_mutually_exclusive_group()
+            completeness.add_argument("--partial", dest="partial", action="store_true", help="Export saved articles as a partial draft (default)")
+            completeness.add_argument("--complete", dest="partial", action="store_false", help="Require all articles and a current preface")
+            cmd.set_defaults(partial=True)
     model = sub.add_parser("model", help="Show or change the saved project model")
     model.add_argument("project", type=Path)
     model.add_argument("--model", help="Model ID to save for future inference")
@@ -194,11 +201,31 @@ def run(args):
                 intro = None
             if not partial and not intro:
                 raise ValueError("Run preface first; it is missing or stale.")
-            output = (args.output or project / "encyclopedia.html").expanduser().resolve()
+            edition = getattr(args, "edition", None)
+            filename = {"kindle": "encyclopedia-kindle.html", "no-references": "encyclopedia-no-references.html",
+                        "chicago": "encyclopedia-chicago.html"}.get(edition, "encyclopedia.html")
+            output = (args.output or project / filename).expanduser().resolve()
             if output.suffix.lower() != ".html":
                 raise ValueError("Output filename must end in .html")
             output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(book.render(config, done, intro, partial), encoding="utf-8")
+            style = {"web": "links", "kindle": "links", "no-references": "none", "chicago": "chicago"}.get(edition, getattr(args, "citations", "links"))
+            overrides_path = project / "citations.json"
+            overrides = read(overrides_path) if style == "chicago" and overrides_path.exists() else {}
+            if style == "chicago" and not getattr(args, "offline_citations", False):
+                from .citation_research import enrich
+                overrides = enrich(client, project, done, overrides, getattr(args, "citation_limit", None))
+            elif style == "chicago":
+                from .citation_research import enrich
+                overrides = enrich(client, project, done, overrides, limit=0)
+            citation_report = []
+            rendered = book.render(config, done, intro, partial, citation_style=style,
+                                   citation_overrides=overrides, citation_report=citation_report, edition=edition)
+            output.write_text(rendered, encoding="utf-8")
+            if style == "chicago":
+                report_path = output.with_suffix(".citation-review.json")
+                save(report_path, citation_report)
+                print("Chicago notes and bibliography exported from saved metadata. "
+                      "%d references need metadata review; see %s" % (len(citation_report), report_path))
             print("Exported " + str(output))
 
 

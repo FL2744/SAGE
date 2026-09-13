@@ -22,7 +22,7 @@ class MenuTests(unittest.TestCase):
             project = Path(tmp) / "volume"
             answers = ["1", "Chemistry", str(project), "invalid", "0", "1",
                        "", "", "", "", "", "3", "4", "5", "e0001", "6",
-                       "7", "", "n", "8", "1", "", "2", str(project), "0"]
+                       "7", "1", "", "n", "8", "1", "", "2", str(project), "0"]
             with patch("builtins.input", side_effect=answers), patch("sage.cli.API", FakeAPI), contextlib.redirect_stdout(io.StringIO()):
                 menu()
             self.assertTrue((project / "encyclopedia.html").exists())

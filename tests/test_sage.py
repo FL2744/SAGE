@@ -44,7 +44,7 @@ class Tests(unittest.TestCase):
             article['summary'] = 'Changed'
             save(project / 'entries/e0001.json', article)
             with self.assertRaisesRegex(ValueError, 'stale'):
-                run(parser().parse_args(['export', p]))
+                run(parser().parse_args(['export', p, '--complete']))
 
     def test_validation(self):
         cfg = dict(min_words=500, max_words=800)

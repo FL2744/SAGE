@@ -23,9 +23,9 @@ def number(label, default=None):
         print("Enter a positive whole number.")
 
 
-def yes(label):
+def yes(label, default="n"):
     while True:
-        value = ask(label + " (y/n)", "n").lower()
+        value = ask(label + " (y/n)", default).lower()
         if value in ("y", "yes", "n", "no"):
             return value in ("y", "yes")
         print("Enter y or n.")
@@ -157,11 +157,34 @@ def menu():
                 limit = number("Maximum articles this run (blank for all pending)")
                 if limit:
                     argv += ["--limit", str(limit)]
+            filename = "encyclopedia.html"
+            if command == "export":
+                print("1. Web version\n2. Kindle version\n3. No references version\n4. Chicago references version")
+                style = ask("Export version", "1")
+                if style not in ("1", "2", "3", "4"):
+                    print("Choose 1, 2, 3, or 4.")
+                    continue
+                argv += ["--edition", {"1": "web", "2": "kindle", "3": "no-references", "4": "chicago"}[style]]
+                if style == "2":
+                    filename = "encyclopedia-kindle.html"
+                if style == "3":
+                    argv += ["--citations", "none"]
+                    filename = "encyclopedia-no-references.html"
+                if style == "4":
+                    argv += ["--citations", "chicago"]
+                    filename = "encyclopedia-chicago.html"
+                    print("Missing authors trigger API web research (API charges apply). Results are cached.")
+                    if yes("Research missing reference metadata now"):
+                        limit = number("Maximum new reference lookups (blank for all)")
+                        if limit:
+                            argv += ["--citation-limit", str(limit)]
+                    else:
+                        argv.append("--offline-citations")
             if command in ("export", "build"):
-                output = ask("HTML output file", str(project / "encyclopedia.html"))
+                output = ask("HTML output file", str(project / filename))
                 argv += ["--output", output]
-            if command == "export" and yes("Export a partial draft"):
-                argv.append("--partial")
+            if command == "export":
+                argv.append("--partial" if yes("Export a partial draft", default="y") else "--complete")
             run(parser().parse_args(argv))
             print("Done.")
         except EOFError:

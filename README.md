@@ -168,3 +168,77 @@ paragraph-preserving revision loop. Articles retain source links and HTML explic
 labels the AI fact-check as skipped. Existing completed articles remain available.
 Option 11 also offers strict mode. Existing projects without a mode keep strict
 behavior until changed. CLI: `python3 -m sage mode PROJECT --mode standard`.
+
+## License
+
+Licensed under the [MIT License](LICENSE).
+
+## Print and Chicago references
+
+Option **7** now offers **1. Linked sources** or **4. Chicago references version**.
+Both use a white background. Chicago export writes `encyclopedia-chicago.html`,
+with numbered paragraph endnotes and an alphabetical bibliography, suitable for
+printing or saving as PDF from a browser. It uses saved articles; no article regeneration is needed. Optional API reference
+research is described below. CLI: `python3 -m sage export PROJECT --citations
+chicago --output OUTPUT.html` (add `--partial` for an incomplete book).
+
+Older source records contain only titles and URLs. These export as title-first web
+references, not fully verified book/journal citations. The adjacent
+`.citation-review.json` lists references that need metadata review. No authors,
+publication dates, or access dates are invented. Generic titles such as "untitled"
+still need editing. Chicago guidance: https://www.chicagomanualofstyle.org/tools_citationguide/citation-guide-1
+
+Optional `citations.json` in the project maps source URLs to metadata objects with
+`author`, `bibliography_author` (the formatted bibliography name), `title`, `site`,
+`date`, and `accessed`. For books, journals, or other source types, supply complete
+plain-text `note` and `bibliography` strings to override web formatting. These are
+escaped safely; include their URL where appropriate. Export again to apply edits.
+
+## API-assisted Chicago references
+
+In option 7, choose Chicago and answer **y** to research missing reference metadata.
+SAGE uses the project's selected model and web search to investigate each unique
+cited URL without an author, then formats source-appropriate Chicago notes and
+bibliography entries. Genuinely authorless sources remain authorless. Unresolved
+lookups retain their saved references and stay in the citation-review report.
+This is AI-assisted bibliographic research, not a guarantee of accuracy.
+
+Set a lookup limit to work in batches; blank processes all uncached sources.
+Each source normally requires one API request with web search and incurs charges.
+`citation-cache.json` saves results after every source, so interruption/resuming
+avoids repeating lookups. Unresolved lookups are cached too; remove a URL's cache
+record to retry it. Manual `citations.json` overrides take precedence. Complete
+manual note/bibliography pairs are not researched again.
+
+CLI Chicago export performs lookups by default. `--citation-limit 25` limits new
+lookups; `--offline-citations` uses only saved metadata and cached results. Other
+exports never invoke reference research. No article regeneration is required.
+
+## Export without references
+
+Choose **7 → 3. No references** to export a clean reading edition to
+`encyclopedia-no-references.html`. It omits citation markers, source lists,
+endnotes, and the bibliography, while retaining the table of contents and article
+navigation. Saved articles and source records remain unchanged. This export needs
+no API calls. CLI: `python3 -m sage export PROJECT --citations none --output
+encyclopedia-no-references.html` (add `--partial` for an incomplete volume).
+
+## Four HTML editions
+
+Option 7 offers: **1. Web**, **2. Kindle**, **3. No references**, and **4. Chicago references**.
+Web retains its two-column desktop contents. Kindle uses a single column at all
+screen sizes and in print, with simpler reflow-friendly sizing; this is HTML for
+Kindle conversion, not an EPUB or KPF package. No references uses a single-column,
+flush-left numbered contents list with each theme following its title on the same
+line, with natural wrapping for long titles. Chicago retains reference research.
+
+Files are `encyclopedia.html`, `encyclopedia-kindle.html`,
+`encyclopedia-no-references.html`, and `encyclopedia-chicago.html`.
+CLI: `python3 -m sage export PROJECT --edition kindle` (or `web`, `no-references`,
+`chicago`). Existing `--citations` flags remain supported; `--edition` takes
+precedence when both are supplied. Build still defaults to web.
+
+All four option 7 exports default to partial draft: press Enter at the prompt to
+export saved articles without requiring completion or a preface. Answer `n` to
+require a complete book. CLI exports also default to partial; use `--complete`
+for strict completeness. No-references editions continue to omit draft labels.
