@@ -33,9 +33,31 @@ class MenuTests(unittest.TestCase):
         with patch("builtins.input", side_effect=["bad", "3", "2", "/no/such/sage-project", KeyboardInterrupt(), "0"]), contextlib.redirect_stdout(output):
             menu()
         self.assertIn("Create or open", output.getvalue())
-        self.assertIn("SAGE:", output.getvalue())
+        self.assertIn("No saved SAGE project", output.getvalue())
         self.assertIn("Returning to menu", output.getvalue())
 
     def test_eof_exits(self):
         with patch("builtins.input", side_effect=EOFError), contextlib.redirect_stdout(io.StringIO()):
             menu()
+
+    def test_topics_in_domain_prompt_are_preserved_as_guidance(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'AI'
+            answers = ['1', 'Artificial Intelligence', str(p), '300', '', '', '1',
+                       'Focus on fundamentals.', 'Transformers, Neural Networks', 'y', '0']
+            with patch('builtins.input', side_effect=answers), contextlib.redirect_stdout(io.StringIO()):
+                menu()
+            config = json.loads((p / 'config.json').read_text())
+            self.assertEqual(config['domains'], [])
+            self.assertIn('Transformers, Neural Networks', config['guidance'])
+            self.assertIn('Focus on fundamentals.', config['guidance'])
+
+    def test_long_guidance_file_and_retry(self):
+        from sage.menu import ask_guidance
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'long guidance.txt'
+            text=('Technical AI — attention and FFNs.\n' * 1000).strip()
+            path.write_text(text,encoding='utf-8')
+            with patch('builtins.input',side_effect=['@/no-such-guidance-file', '@'+str(path)]), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(ask_guidance(),text)

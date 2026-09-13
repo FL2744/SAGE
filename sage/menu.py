@@ -1,5 +1,6 @@
 """Interactive terminal interface for the existing SAGE workflow."""
 from pathlib import Path
+import re
 
 from .storage import read
 from .models import MODEL_OPTIONS, default_model, validate_model
@@ -8,6 +9,26 @@ from .models import MODEL_OPTIONS, default_model, validate_model
 def ask(label, default=None):
     suffix = " [%s]" % default if default is not None else ""
     return input(label + suffix + ": ").strip() or default or ""
+
+
+def ask_guidance():
+    print("Enter short guidance directly, or @ followed by a UTF-8 text file path for long guidance.")
+    print("Example: @AI-guidance.txt (paths may contain spaces). Blank means no guidance.")
+    while True:
+        value = ask("Editorial guidance")
+        if not value.startswith("@"):
+            return value
+        path_text = value[1:].strip().strip('"').strip("'")
+        if not path_text:
+            print("Enter a filename after @.")
+            continue
+        try:
+            text = Path(path_text).expanduser().read_text(encoding="utf-8-sig").strip()
+        except (OSError, UnicodeError) as error:
+            print("Cannot read guidance file: %s. Try again; your setup is retained." % error)
+            continue
+        print("Loaded %d characters of editorial guidance." % len(text))
+        return text
 
 
 def number(label, default=None):
@@ -86,12 +107,25 @@ def menu():
                 minimum = number("Minimum words per article", 500)
                 maximum = number("Maximum words per article", 800)
                 model = choose_model()
-                guidance = ask("Editorial guidance (optional)")
-                domains = ask("Research domains, space-separated (blank for unrestricted)")
+                guidance = ask_guidance()
+                print("Optional website restriction: enter domains such as arxiv.org or mit.edu.")
+                print("Put subject areas and chapter themes in editorial guidance. Blank searches all websites.")
+                while True:
+                    domains = ask("Allowed website domains (blank for unrestricted)")
+                    values = domains.split()
+                    if len(values) <= 100 and all(re.fullmatch(r"[A-Za-z0-9.-]+\.[A-Za-z]{2,}", d) for d in values):
+                        break
+                    print("This field accepts website domains, not topic categories or full URLs.")
+                    if yes("Add that text to editorial guidance instead"):
+                        guidance = (guidance + "\nAdditional coverage guidance: " + domains).strip()
+                        domains = ""
+                        print("Added to guidance. Website research will be unrestricted.")
+                        break
+                    print("Your setup is retained. Correct the domains or press Enter for unrestricted research.")
                 args = parser().parse_args(["init", location, "--subject", subject,
                     "--count", str(count), "--min-words", str(minimum),
                     "--max-words", str(maximum), "--model", model,
-                    "--guidance", guidance, "--domains", *domains.split()])
+                    "--guidance=" + guidance, "--domains", *domains.split()])
                 run(args)
                 project = Path(location).expanduser().resolve()
                 continue
@@ -99,6 +133,9 @@ def menu():
                 location = ask("Existing project folder (blank to cancel)")
                 if location:
                     candidate = Path(location).expanduser().resolve()
+                    if not (candidate / "config.json").exists():
+                        print("No saved SAGE project in this folder. Choose option 1 to create it; an empty folder can be reused.")
+                        continue
                     config = read(candidate / "config.json")
                     print("Opened: " + config["subject"])
                     project = candidate

@@ -242,3 +242,8 @@ All four option 7 exports default to partial draft: press Enter at the prompt to
 export saved articles without requiring completion or a preface. Answer `n` to
 require a complete book. CLI exports also default to partial; use `--complete`
 for strict completeness. No-references editions continue to omit draft labels.
+
+For long editorial guidance, save it as a UTF-8 plain-text file and enter
+`@filename.txt` at the guidance prompt (for example, `@AI-guidance.txt`).
+Absolute paths and paths containing spaces work too. The file's full contents
+are stored in the project configuration, so it is not needed during generation.
