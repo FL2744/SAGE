@@ -18,7 +18,7 @@ class EditionTests(unittest.TestCase):
             if edition in ('kindle','no-references'):
                 self.assertNotIn('columns:2',text)
             if edition=='no-references':
-                self.assertIn('— <span class="toc-theme">Test</span>',text)
+                self.assertNotIn('<span class="toc-theme">',text)
                 self.assertIn('padding-left:0;margin-left:0;list-style-position:inside',text)
                 self.assertNotIn('<h3>Sources',text)
             if edition=='kindle':self.assertIn('<h3>Sources',text)
@@ -66,5 +66,31 @@ class EditionTests(unittest.TestCase):
             self.assertIn('<h3>Sources</h3>',output)
             self.assertIn('href="#e0001-source-1"',output)
         web=book.render(dict(subject='Test'),[article],partial=True,edition='web')
-        self.assertIn('PARTIAL DRAFT',web)
-        self.assertIn('<footer>',web)
+        self.assertNotIn('PARTIAL DRAFT',web)
+        self.assertNotIn('<footer>',web)
+
+    def test_default_web_cleans_citations_and_metadata(self):
+        import re
+        article=test_chicago.ChicagoTests().article()
+        article['paragraphs'][0]['text']='Example [1][2] [1, 2] (Sources: 1, 2).'
+        for edition in (None,'web'):
+            output=book.render(dict(subject='Test'),[article],partial=True,edition=edition)
+            self.assertIn('<p>Example. <sup>',output)
+            self.assertIn('href="#e0001-source-1"',output)
+            self.assertIn('id="e0001-source-1"',output)
+            self.assertNotIn('[1]',re.sub(r'<sup>.*?</sup>','',output))
+            for text in ('Written for the educated layperson','PARTIAL DRAFT','<footer>','Generated 2026'):
+                self.assertNotIn(text,output)
+
+    def test_titles_only_in_all_contents(self):
+        import re
+        article=test_chicago.ChicagoTests().article()
+        article['category']='Neural Networks and Deep Learning'
+        for edition in ('web','kindle','no-references','chicago'):
+            output=book.render(dict(subject='Test'),[article],partial=True,edition=edition)
+            toc=re.search(r'<nav id="contents".*?</nav>',output,re.S).group()
+            self.assertNotIn(article['category'],toc)
+            self.assertNotIn('<small>',toc)
+            self.assertNotIn('toc-theme',toc)
+            self.assertIn('href="#e0001"',toc)
+            self.assertIn('A: &lt;Title&gt;',toc)

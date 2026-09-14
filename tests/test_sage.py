@@ -58,19 +58,6 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             entries.validate(a, src, cfg)
 
-    def test_rejected_review_never_returns_entry(self):
-        class RejectAPI(FakeAPI):
-            def call(self, prompt, schema=None, **kw):
-                if schema and 'passed' in schema['properties']:
-                    return dict(passed=False, issues=['Unsupported assertion']), []
-                return super().call(prompt, schema, **kw)
-        with tempfile.TemporaryDirectory() as tmp:
-            config = dict(subject='Test', guidance='', domains=[], min_words=500, max_words=800)
-            with self.assertRaisesRegex(ValueError, 'retry limit'):
-                entries.generate(RejectAPI(), Path(tmp), config, dict(id='e0001', title='Test'))
-            self.assertTrue((Path(tmp) / 'reviews/e0001.json').exists())
-            self.assertFalse((Path(tmp) / 'entries/e0001.json').exists())
-
     def test_html_escaping(self):
         article = dict(id='e0001', title='<script>alert(1)</script>', category='A&B',
                        paragraphs=[dict(text='<img src=x onerror=bad>', source_ids=[1])],
@@ -79,7 +66,7 @@ class Tests(unittest.TestCase):
         self.assertNotIn('<script>', output)
         self.assertNotIn('javascript:', output)
         self.assertIn('&lt;img', output)
-        self.assertIn('PARTIAL DRAFT', output)
+        self.assertNotIn('PARTIAL DRAFT', output)
 
     def test_idea_deduplication_stops_stalled_batches(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -102,6 +89,17 @@ class Tests(unittest.TestCase):
             self.assertEqual(payload['tools'][0]['filters']['allowed_domains'], ['example.edu'])
             self.assertEqual(payload['text']['format']['type'], 'json_schema')
             self.assertTrue(result['ok'])
+
+    def test_preface_prompt_requires_method_and_contributions(self):
+        from unittest.mock import Mock
+        api=Mock()
+        api.call.return_value=(dict(paragraphs=['Test preface']),[])
+        book.preface(api,dict(subject='AI'),[])
+        prompt=api.call.call_args.args[0]
+        for phrase in ('Synthetic Automated Generator of Encyclopedias',
+                       'https://github.com/FL2744/SAGE', 'GitHub issues', 'pull requests',
+                       'skips a separate AI fact-checking pass'):
+            self.assertIn(phrase,prompt)
 
 
 if __name__ == '__main__':

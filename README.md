@@ -1,5 +1,3 @@
-![sage logo](sage-logo.png)
-
 # SAGE
 **Synthetic Automated Generator of Encyclopedias**
 
@@ -106,29 +104,24 @@ Use any subject, e.g. `--subject Chemistry` or `--subject 'Indigenous peoples of
 
 Optional installation: `python3 -m pip install -e .` exposes the `sage` command (a virtual environment is recommended).
 
-## Review decisions
+## Research and editorial quality
 
-Fact-checking separates blocking factual issues from editorial suggestions. Material
-errors, unsupported central claims, invalid citations, and materially misleading
-framing still block acceptance. Wording preferences and optional context are saved
-as suggestions in `reviews/` and do not trigger retries. Revisions preserve
-unflagged paragraphs and their citations; the synopsis changes only when flagged.
-Follow-up reviews focus on corrections while still checking for material errors.
+All projects use standard generation: one web-research call and one writing call,
+with at most one additional writing attempt for invalid citations or malformed
+content. Article length is guidance. There is no separate AI fact-check or
+review-revision loop. Sources are retained and basic citation IDs are validated.
+Legacy `generation_mode` settings are ignored; saved articles remain usable.
 
-## Evidence and editorial quality
-
-Each entry receives a web-researched evidence brief, a structured draft with paragraph-level source IDs, and a separate web-enabled fact-checking pass. At least two distinct cited source URLs are required; the reviewer is asked to check their independence and authority. Word counts exclude title, citations, and synopsis. Invalid length, missing citations, and failed evidence reviews trigger bounded drafting and review attempts; unresolved entries are retained as failures and excluded from publication. Failed fact-checks trigger targeted web research before the next draft. SAGE updates the evidence and adds cited sources while preserving source IDs. Separate format and fact-check retry limits apply; format/length failures do not trigger extra research. Terminal messages show research, drafting, and review progress. Concise failures link to full reports in `reviews/`; final issues are also saved in `errors/`, and corrective research in `research/`. Extra research incurs API and web-search charges.
-
-The automated check is a model judgment, not proof of factual accuracy or source independence. SAGE cannot guarantee accuracy. A knowledgeable human editor should inspect claims and cited documents, especially contested history, cultural representation, and fast-changing information. A source URL's presence does not prove every associated assertion. Source guidance favors scholarship, scientific bodies, museums, official data, and community institutions.
-
-The preface is based on synopses of **all accepted articles**, avoiding a single request containing 150,000–240,000 words. It synthesizes themes rather than repeating every entry. Any article change invalidates the saved preface. HTML escapes all generated text, includes no remote scripts or assets, supports print, and labels partial exports.
+SAGE cannot guarantee factual accuracy or source quality. Read the sources and
+review generated prose before publication. The preface synthesizes accepted
+article summaries. HTML escapes generated text and supports print.
 
 ## Persistence, costs, and operation
 
 - Project files: `config.json`, `ideas.json`, `entries/`, `research/`, `reviews/`, `errors/`, `preface.json`, `usage.jsonl`, and `encyclopedia.html`.
 - Saves are atomic. A project lock prevents two local commands from modifying the same project simultaneously.
 - Ctrl-C retains completed work. Rerun the command to resume; an interrupted entry may need to repeat its API calls.
-- API calls incur your OpenAI API charges. A 300-entry volume normally needs 12 idea batches, at least 900 entry calls, and one preface call, plus revision/retry calls and web-search charges. Start with one entry to assess quality and usage. There is no built-in dollar budget; use API account spending controls and `--limit`.
+- API calls incur your OpenAI API charges. A 300-entry volume normally needs 12 idea batches, at least 600 entry calls, and one preface call, plus revision/retry calls and web-search charges. Start with one entry to assess quality and usage. There is no built-in dollar budget; use API account spending controls and `--limit`.
 - Token usage and response IDs are logged without the API key. The key is read only from the environment. Requests use `store=false`; OpenAI's applicable data policies still apply.
 - Rate limits and selected server errors use bounded exponential retries. Network errors stop the current entry; check `errors/` and rerun.
 - Do not run multiple writers against the same project from different machines/network filesystems.
@@ -145,33 +138,10 @@ API references: [Responses structured outputs](https://developers.openai.com/api
 
 ## Bounded retries and unattended builds
 
-Each article gets up to three format/length failures and three fact-check rounds,
-with a maximum of six drafts. Format failures do not consume fact-check rounds.
-The terminal displays the exact validation problem. After a limit or generation
-error, SAGE saves the report, marks the article skipped, and continues.
-
-Subsequent builds leave skipped articles for later. Option 4 shows their status;
-option 5 with a specific entry ID retries one. The CLI `--retry-skipped` flag on
-`generate` or `build` retries all skipped articles. Completed articles remain saved.
-
-An incomplete build automatically exports accepted articles as a labeled partial
-HTML draft, without generating a new preface. If no articles are accepted, it
-reports that there is nothing to export. Skipped drafts stay in the review files
-and are not labeled as accepted or included in the book.
-
-## Faster standard mode
-
-Choose option **11**, then **1** for standard mode. It makes one research call and
-one writing call, with at most one additional writing attempt for missing citations
-or malformed content. Word counts are guidance; there is no AI fact-check or
-paragraph-preserving revision loop. Articles retain source links and HTML explicitly
-labels the AI fact-check as skipped. Existing completed articles remain available.
-Option 11 also offers strict mode. Existing projects without a mode keep strict
-behavior until changed. CLI: `python3 -m sage mode PROJECT --mode standard`.
-
-## License
-
-Licensed under the [MIT License](LICENSE).
+Each article gets at most two writing attempts. After an error, SAGE saves the
+report, skips the entry, and continues. Later builds leave skipped entries for
+later; option 5 with an entry ID retries one. CLI `--retry-skipped` retries them
+in bulk. Incomplete builds export the saved articles.
 
 ## Print and Chicago references
 
@@ -247,3 +217,33 @@ For long editorial guidance, save it as a UTF-8 plain-text file and enter
 `@filename.txt` at the guidance prompt (for example, `@AI-guidance.txt`).
 Absolute paths and paths containing spaces work too. The file's full contents
 are stored in the project configuration, so it is not needed during generation.
+
+## Word documents (.docx)
+
+Install the optional Word exporter once, from the SAGE folder:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e ".[word]"
+```
+
+In future terminal sessions, run `source .venv/bin/activate` before starting SAGE,
+or launch directly with `.venv/bin/python -m sage`.
+
+Open a project, choose **7. Export HTML or Word**, then **5. Word document (.docx)**.
+Choose linked citations, no references, or Chicago references. The editable document
+includes the current saved preface, single-column alphabetical contents with titles
+only, and articles with Word heading styles. Linked citations remain superscript
+links to sources. Partial export is the default. It uses saved articles without
+regeneration; only optional Chicago metadata research calls the API.
+
+```sh
+python3 -m sage export AI --format docx
+python3 -m sage export AI --format docx --edition no-references
+python3 -m sage export AI --format docx --edition chicago --offline-citations
+```
+
+Default filenames are `encyclopedia.docx`, `encyclopedia-no-references.docx`, and
+`encyclopedia-chicago.docx`. Use `--output` to choose another `.docx` filename.
+HTML remains available without third-party packages.

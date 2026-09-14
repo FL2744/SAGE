@@ -10,6 +10,9 @@ description = "Synthetic Automated Generator of Encyclopedias"
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+word = ["python-docx>=1.1,<2"]
+
 [project.scripts]
 sage = "sage.cli:main"
 

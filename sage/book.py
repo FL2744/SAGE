@@ -18,7 +18,21 @@ def preface(api, config, entries):
     result, _ = api.call(
         "Write a 600–900-word preface to an encyclopedia for educated laypeople. Synthesize the entire supplied "
         "set of entry synopses: explain scope, major themes, connections and limits. Do not introduce new factual "
-        "claims or claim exhaustive coverage. Use plain paragraphs without markup. Subject: " + config["subject"] +
+        "claims or claim exhaustive coverage. In addition to the subject overview, every preface MUST include "
+        "a transparent account of the production method, a reference to SAGE, the exact repository URL, and "
+        "an invitation to contribute revisions and additions. Use this factual method description: SAGE stands "
+        "for Synthetic Automated Generator of Encyclopedias, a Python system using large language models. "
+        "User editorial guidance shapes the topic plan and intended readership. SAGE plans entries, performs "
+        "web research, writes articles with source links and summaries, and assembles alphabetical exports. "
+        "The current standard workflow checks citation structure but skips a separate AI fact-checking pass. "
+        "Do not claim human verification, peer review, or independent fact-checking occurred unless explicitly "
+        "documented. Explain that AI-assisted text may contain errors, gaps, overlaps, or outdated information. "
+        "Include https://github.com/FL2744/SAGE as a plain URL so the exporter can make it clickable. "
+        "Invite readers to suggest corrections, additions, better sources, clearer explanations, and updates "
+        "through GitHub issues, identifying entry titles and providing proposed changes and supporting sources. "
+        "Invite developers to contribute software improvements through pull requests. Balance this production "
+        "and contribution account with a substantive overview drawn from the supplied synopses; adapt the "
+        "overview to the encyclopedia's subject. Use plain paragraphs without markup. Subject: " + config["subject"] +
         ". All accepted entry synopses: " + json.dumps(summaries), obj(paragraphs=STRINGS))
     if not result["paragraphs"] or not all(p.strip() for p in result["paragraphs"]):
         raise ValueError("Empty preface returned.")
@@ -48,15 +62,11 @@ def render(config, entries, introduction=None, partial=False, citation_style="li
     toc, articles = [], []
     for e in entries:
         ident = esc(e["id"], quote=True)
-        if citation_style == "none":
-            toc.append('<li><a href="#%s">%s</a> — <span class="toc-theme">%s</span></li>' %
-                       (ident, esc(e["title"]), esc(e["category"])))
-        else:
-            toc.append('<li><a href="#%s">%s</a><small>%s</small></li>' % (ident, esc(e["title"]), esc(e["category"])))
+        toc.append('<li><a href="#%s">%s</a></li>' % (ident, esc(e["title"])))
         paragraphs = []
         for p in e["paragraphs"]:
             cites = " ".join('<a href="#%s-source-%d" aria-label="Source %d">[%d]</a>' % (ident, i, i, i) for i in p["source_ids"])
-            text = without_citations(p["text"]) if edition == "kindle" else p["text"]
+            text = without_citations(p["text"]) if citation_style == "links" else p["text"]
             paragraphs.append('<p>%s <sup>%s</sup></p>' % (esc(text), cites))
         sources = "".join('<li id="%s-source-%d"><a href="%s" rel="noopener noreferrer">%s</a></li>' %
                           (ident, s["id"], esc(s["url"], quote=True), esc(s["title"]))
@@ -84,7 +94,7 @@ def render(config, entries, introduction=None, partial=False, citation_style="li
     output = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Encyclopedia of %s</title><style>
 :root{color-scheme:light;--ink:#20382f;--paper:#ffffff}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:18px/1.75 Georgia,serif}main{max-width:960px;margin:auto;padding:50px 30px}header{border-bottom:3px solid var(--ink);padding:40px 0}h1{font-size:clamp(36px,6vw,64px);line-height:1.12;font-weight:normal}h2{font-size:34px;line-height:1.25}h3{font-size:22px}a{color:#256348;text-underline-offset:3px}article,section,nav{padding:35px 0;border-bottom:1px solid #cbd2c6}article,section{scroll-margin-top:24px}.eyebrow,.meta,small{font:13px/1.6 system-ui,sans-serif;letter-spacing:.04em}small{display:block;color:#667267}nav ol{columns:2;column-gap:35px;padding-left:24px}nav li{break-inside:avoid;margin:0 0 12px}sup{font:12px system-ui}footer{padding:35px 0;font:14px/1.6 system-ui}article p{text-align:left}.bibliography-entry{padding-left:2em;text-indent:-2em;overflow-wrap:anywhere}#notes li{margin-bottom:.8em;overflow-wrap:anywhere}#notes,#bibliography{break-before:page}@page{margin:20mm}@media(max-width:600px){nav ol{columns:1}main{padding:20px}}@media print{body{background:white;font-size:11pt}main{max-width:none;padding:0}article{break-before:page}a{color:inherit}nav ol{columns:2}.backlink{display:none}}
 </style></head><body><main><header><p class="eyebrow">SAGE / SYNTHETIC AUTOMATED GENERATOR OF ENCYCLOPEDIAS</p><h1>Encyclopedia of %s</h1><p>%d entries · Written for the educated layperson%s</p></header>%s<nav id="contents" aria-label="Table of contents"><h2>Contents</h2>%s<ol>%s</ol></nav>%s<footer>Created with SAGE. AI-generated text; review status is shown on each article; human editorial review is required before publication.%s</footer></main></body></html>''' % (esc(config["subject"]), esc(config["subject"]), len(entries), " · PARTIAL DRAFT" if partial else "", intro, '<a href="#preface">Preface</a>' if introduction else "", "".join(toc), "".join(articles), citation_notice)
-    if citation_style == "none" or edition == "kindle":
+    if citation_style in ("none", "links"):
         status = '<p>%d entries · Written for the educated layperson%s</p>' % (len(entries), " · PARTIAL DRAFT" if partial else "")
         output = output.replace(status, "", 1)
         footer = '<footer>Created with SAGE. AI-generated text; review status is shown on each article; human editorial review is required before publication.' + citation_notice + '</footer>'
@@ -93,10 +103,11 @@ def render(config, entries, introduction=None, partial=False, citation_style="li
         output = output.replace("columns:2", "columns:1")
     if citation_style == "none":
         output = output.replace("</style>", "nav ol{padding-left:0;margin-left:0;list-style-position:inside}nav li{padding-left:0;text-indent:0}.toc-theme{font-size:.9em}</style>", 1)
-    if edition == "kindle":
+    if citation_style == "links":
         for entry in entries:
             review_status = "AI fact-check skipped (standard mode)" if entry.get("generation_mode") == "standard" else "Automated evidence review passed"
             metadata = '<p class="meta">Generated %s · %s</p>' % (esc(entry["generated_at"][:10]), review_status)
             output = output.replace(metadata, "")
+    if edition == "kindle":
         output = output.replace("</style>", "main{max-width:none;padding:1em}h1{font-size:2em}h2{font-size:1.5em}article{page-break-before:always}</style>", 1)
     return output

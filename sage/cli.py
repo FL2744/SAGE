@@ -39,6 +39,7 @@ def parser():
             cmd.add_argument("--entry", help="Generate one entry ID from the list")
         if name in ("export", "build"):
             cmd.add_argument("--output", type=Path)
+            cmd.add_argument("--format", choices=("html", "docx"), default="html", help="Output file format")
             cmd.add_argument("--citation-limit", type=positive, help="Maximum new API reference lookups")
             cmd.add_argument("--offline-citations", action="store_true", help="Use saved references without API lookups")
             cmd.add_argument("--edition", choices=("web", "kindle", "no-references", "chicago"))
@@ -56,9 +57,6 @@ def parser():
     add.add_argument("--title", required=True)
     add.add_argument("--category", required=True)
     add.add_argument("--scope", required=True)
-    mode = sub.add_parser("mode", help="Choose standard or strict generation")
-    mode.add_argument("project", type=Path)
-    mode.add_argument("--mode", choices=("standard", "strict"), required=True)
     return p
 
 
@@ -109,11 +107,6 @@ def run(args):
             print("Created " + str(project))
             return
         config = read(project / "config.json")
-        if args.command == "mode":
-            config["generation_mode"] = args.mode
-            save(project / "config.json", config)
-            print("Generation mode: " + args.mode)
-            return
         if args.command == "add":
             planned = load_ideas(project) if (project / "ideas.json").exists() else []
             item, count = ideas.add(project, config, planned, args.title, args.category, args.scope)
@@ -159,6 +152,9 @@ def run(args):
                 if skipped_ids:
                     print("Leaving %d previously skipped articles for later. Use option 5 with an entry ID to retry one." % len(skipped_ids))
             pending = pending[:args.limit] if args.limit else pending
+            # Configuration failures must not mark every pending article as skipped.
+            if pending:
+                client()
             failures = []
             for idea in pending:
                 print("Generating %s: %s" % (idea["id"], idea["title"]), flush=True)
@@ -204,9 +200,14 @@ def run(args):
             edition = getattr(args, "edition", None)
             filename = {"kindle": "encyclopedia-kindle.html", "no-references": "encyclopedia-no-references.html",
                         "chicago": "encyclopedia-chicago.html"}.get(edition, "encyclopedia.html")
+            output_format = getattr(args, "format", "html")
+            if output_format == "docx":
+                filename = str(Path(filename).with_suffix(".docx"))
+                from .word import require_docx
+                require_docx()
             output = (args.output or project / filename).expanduser().resolve()
-            if output.suffix.lower() != ".html":
-                raise ValueError("Output filename must end in .html")
+            if output.suffix.lower() != "." + output_format:
+                raise ValueError("Output filename must end in ." + output_format)
             output.parent.mkdir(parents=True, exist_ok=True)
             style = {"web": "links", "kindle": "links", "no-references": "none", "chicago": "chicago"}.get(edition, getattr(args, "citations", "links"))
             overrides_path = project / "citations.json"
@@ -218,9 +219,17 @@ def run(args):
                 from .citation_research import enrich
                 overrides = enrich(client, project, done, overrides, limit=0)
             citation_report = []
-            rendered = book.render(config, done, intro, partial, citation_style=style,
+            render_entries = done
+            if output_format == "docx":
+                from .word import prepare_entries
+                render_entries = prepare_entries(done)
+            rendered = book.render(config, render_entries, intro, partial, citation_style=style,
                                    citation_overrides=overrides, citation_report=citation_report, edition=edition)
-            output.write_text(rendered, encoding="utf-8")
+            if output_format == "docx":
+                from .word import write
+                write(rendered, output)
+            else:
+                output.write_text(rendered, encoding="utf-8")
             if style == "chicago":
                 report_path = output.with_suffix(".citation-review.json")
                 save(report_path, citation_report)

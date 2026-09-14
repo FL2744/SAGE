@@ -38,9 +38,9 @@ class NoReferencesTests(unittest.TestCase):
                      'AI fact-check skipped', 'Back to contents', 'Created with SAGE', '<footer>'):
             self.assertNotIn(text,result)
         linked=book.render(dict(subject='Test'),[article],partial=True)
-        self.assertIn('PARTIAL DRAFT',linked)
+        self.assertNotIn('PARTIAL DRAFT',linked)
         self.assertIn('Back to contents',linked)
-        self.assertIn('<footer>',linked)
+        self.assertNotIn('<footer>',linked)
 
     def test_empty_parentheticals(self):
         for marker in ('()', '(,)', '(,,,)', '(,,)', '(;)', '(;;)', '( , ; )', '((,))', '([1], [2])'):

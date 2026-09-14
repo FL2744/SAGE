@@ -85,17 +85,17 @@ def menu():
             if project:
                 print("Inference model: " + read(project / "config.json")["model"])
             if project:
-                print("Generation mode: " + read(project / "config.json").get("generation_mode", "strict"))
+                print("Generation: standard (AI fact-check skipped)")
             print("1. Create a new project\n2. Open an existing project\n"
                   "3. Generate entry ideas\n4. List entries and progress\n"
                   "5. Generate articles\n6. Generate preface\n"
-                  "7. Export HTML\n8. Build / resume encyclopedia\n9. Change inference model\n10. Add articles to this encyclopedia\n11. Change generation mode\n0. Exit")
+                  "7. Export HTML or Word (.docx)\n8. Build / resume encyclopedia\n9. Change inference model\n10. Add articles to this encyclopedia\n0. Exit")
             choice = ask("Choose an option")
             if choice == "0":
                 print("Goodbye.")
                 return
-            if choice not in {str(i) for i in range(1, 12)}:
-                print("Choose a number from 0 to 11.")
+            if choice not in {str(i) for i in range(1, 11)}:
+                print("Choose a number from 0 to 10.")
                 continue
             if choice == "1":
                 subject = ask("Encyclopedia subject")
@@ -143,16 +143,6 @@ def menu():
             if project is None:
                 print("Create or open a project first.")
                 continue
-            if choice == "11":
-                print("1. Standard: research + writing; flexible length, no AI fact-check")
-                print("2. Strict: research + writing + AI fact-check and corrections")
-                selected = ask("Generation mode", "1")
-                if selected not in ("1", "2"):
-                    print("Choose 1 or 2.")
-                    continue
-                run(parser().parse_args(["mode", str(project), "--mode",
-                                        "standard" if selected == "1" else "strict"]))
-                continue
             if choice == "10":
                 print("Add article topics; generation happens when you choose Generate or Build.")
                 while True:
@@ -196,10 +186,19 @@ def menu():
                     argv += ["--limit", str(limit)]
             filename = "encyclopedia.html"
             if command == "export":
-                print("1. Web version\n2. Kindle version\n3. No references version\n4. Chicago references version")
+                print("1. Web version\n2. Kindle version\n3. No references version\n4. Chicago references version\n5. Word document (.docx)")
                 style = ask("Export version", "1")
+                word_output = style == "5"
+                if word_output:
+                    argv += ["--format", "docx"]
+                    print("1. Linked citations\n2. No references\n3. Chicago references")
+                    reference = ask("Word reference style", "1")
+                    if reference not in ("1", "2", "3"):
+                        print("Choose 1, 2, or 3.")
+                        continue
+                    style = {"1": "1", "2": "3", "3": "4"}[reference]
                 if style not in ("1", "2", "3", "4"):
-                    print("Choose 1, 2, 3, or 4.")
+                    print("Choose 1, 2, 3, 4, or 5.")
                     continue
                 argv += ["--edition", {"1": "web", "2": "kindle", "3": "no-references", "4": "chicago"}[style]]
                 if style == "2":
@@ -217,8 +216,11 @@ def menu():
                             argv += ["--citation-limit", str(limit)]
                     else:
                         argv.append("--offline-citations")
+                if word_output:
+                    filename = str(Path(filename).with_suffix(".docx"))
             if command in ("export", "build"):
-                output = ask("HTML output file", str(project / filename))
+                label = "Word output file" if filename.endswith(".docx") else "HTML output file"
+                output = ask(label, str(project / filename))
                 argv += ["--output", output]
             if command == "export":
                 argv.append("--partial" if yes("Export a partial draft", default="y") else "--complete")
