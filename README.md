@@ -1,4 +1,4 @@
-![SAGE logo](SAGE-logo.png)
+![SAGE logo](sage-logo.png)
 
 # SAGE
 **Synthetic Automated Generator of Encyclopedias**
